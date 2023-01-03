@@ -1,4 +1,7 @@
 import requests
+
+url = 'http://localhost:50021'
+
 headers = {
     'Content-Type': 'application/json',
 }
@@ -12,7 +15,7 @@ with open('query.json') as f:
     data = f.read().encode('utf-8')
 
 try:
-    response = requests.post('http://localhost:50021/synthesis', params=params,
+    response = requests.post('{}/synthesis'.format(url), params=params,
                              headers=headers, data=data)
 except requests.ConnectionError:
     print("No connection")

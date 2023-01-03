@@ -3,8 +3,10 @@ import json
 import base64
 import os
 
+url = 'http://localhost:50021'
+
 try:
-    response = requests.get('http://localhost:50021/speakers')
+    response = requests.get('{}/speakers'.format(url))
 except requests.ConnectionError:
     print("No connection")
     exit()
@@ -24,8 +26,7 @@ for i in speakeruuid:
             'speaker_uuid': i
         }
     try:
-        response = requests.get('http://localhost:50021/speaker_info',
-                                params=params)
+        response = requests.get('{}/speaker_info'.format(url), params=params)
     except requests.ConnectionError:
         print("No connection")
         exit()

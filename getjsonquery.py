@@ -1,11 +1,13 @@
 import requests
+
+url = 'http://localhost:50021'
+
 params = {
         'speaker': '1',
         'text': 'こんにちは、音声合成の世界へようこそ',
 }
 try:
-    response = requests.post('http://localhost:50021/audio_query',
-                             params=params)
+    response = requests.post('{}/audio_query'.format(url), params=params)
 except requests.ConnectionError:
     print("No connection")
     exit()
