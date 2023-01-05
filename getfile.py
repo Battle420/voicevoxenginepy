@@ -1,27 +1,28 @@
 import requests
 
-url = 'http://localhost:50021'
 
-headers = {
-    'Content-Type': 'application/json',
-}
+def simplesynthesis(url, speaker):
+    site = url
 
-params = {
-    'speaker': '1',
-}
+    headers = {
+        'Content-Type': 'application/json',
+    }
 
+    params = {
+        'speaker': speaker,
+    }
 
-with open('query.json') as f:
-    data = f.read().encode('utf-8')
+    with open('query.json') as f:
+        data = f.read().encode('utf-8')
 
-try:
-    response = requests.post('{}/synthesis'.format(url), params=params,
-                             headers=headers, data=data)
-except requests.ConnectionError:
-    print("No connection")
-    exit()
+    try:
+        response = requests.post('{}/synthesis'.format(site), params=params,
+                                 headers=headers, data=data)
+    except requests.ConnectionError:
+        print("No connection")
+        exit()
 
-if response.status_code == 200 and 'audio/wav' \
-        in response.headers.get('Content-Type', ''):
-    with open('audio.wav', mode='bw') as f:
-        f.write(response.content)
+    if response.status_code == 200 and 'audio/wav' \
+            in response.headers.get('Content-Type', ''):
+        with open('audio.wav', mode='bw') as f:
+            f.write(response.content)

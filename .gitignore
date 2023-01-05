@@ -3,3 +3,4 @@
 *.json
 *.txt
 /speakers
+/__pycache__
