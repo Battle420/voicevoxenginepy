@@ -11,7 +11,7 @@ def speaker():
     minimumindex = 0
     for i in speakerlist:
         index = index + 1
-        print("{}:".format(index), speakerlist[index])
+        print(f"{index}:", speakerlist[index])
 
     selectedspeaker = int(input("Which speaker would you like to select:"))
     if selectedspeaker > index or selectedspeaker < minimumindex:
@@ -25,7 +25,7 @@ def speaker():
             styleindex = styleindex + 1
             selectableid = stylelist[styleindex]["id"]
             selectablename = stylelist[styleindex]["name"]
-            print("{}:".format(styleindex), "Name:", selectablename,
+            print(f"{styleindex}:", "Name:", selectablename,
                   "id:", selectableid)
 
         selectedstyle = int(input("Which style would you like to choose:"))

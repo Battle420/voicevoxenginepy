@@ -17,7 +17,7 @@ def synthesismorphing(url, speaker1, speaker2, morphrate):
         data = f.read().encode('utf-8')
 
     try:
-        response = requests.post('{}/synthesis_morphing'.format(site),
+        response = requests.post(f'{site}/synthesis_morphing',
                                  params=params, headers=headers, data=data)
     except requests.ConnectionError:
         print("No connection")

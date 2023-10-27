@@ -23,7 +23,7 @@ if __name__ == "__main__":
             getspeakers.updatespeakers(url)
 
         elif selection == 1:
-            speakername, speakeruuid, speakerstyle,\
+            speakername, speakeruuid, speakerstyle, \
                     speakerstyleid = selectspeaker.speaker()
         elif selection == 2:
             text = str(input("Japanese text:"))
@@ -33,7 +33,7 @@ if __name__ == "__main__":
             getfile.simplesynthesis(url, speakerstyleid)
 
         elif selection == 4:
-            speakername2, speakeruuid2, speakerstyle2,\
+            speakername2, speakeruuid2, speakerstyle2, \
                 speakerstyleid2 = selectspeaker.speaker()
 
             selectedmorphing = float(input("Set value from 0 to 1 (e.g 0.4):"))

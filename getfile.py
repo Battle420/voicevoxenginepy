@@ -16,7 +16,7 @@ def simplesynthesis(url, speaker):
         data = f.read().encode('utf-8')
 
     try:
-        response = requests.post('{}/synthesis'.format(site), params=params,
+        response = requests.post(f'{site}/synthesis', params=params,
                                  headers=headers, data=data)
     except requests.ConnectionError:
         print("No connection")

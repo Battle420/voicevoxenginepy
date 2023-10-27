@@ -9,7 +9,7 @@ def updatespeakers(url):
     site = url
 
     try:
-        response = requests.get('{}/speakers'.format(site))
+        response = requests.get(f'{site}/speakers')
     except requests.ConnectionError:
         print("No connection")
         exit()
@@ -22,12 +22,12 @@ def updatespeakers(url):
         data = json.load(j)
     speakeruuid = ([item["speaker_uuid"] for item in data])
 
-    for i in speakeruuid:
+    for speaker in speakeruuid:
         params = {
-                'speaker_uuid': i
+                'speaker_uuid': speaker
             }
         try:
-            response = requests.get('{}/speaker_info'.format(site),
+            response = requests.get(f'{site}/speaker_info',
                                     params=params)
         except requests.ConnectionError:
             print("No connection")
@@ -35,18 +35,18 @@ def updatespeakers(url):
 
         if response.status_code == 200 and 'application/json' \
                 in response.headers.get('Content-Type', ''):
-            path = 'speakers/{}'.format(i)
+            path = f'speakers/{speaker}'
             if not os.path.exists(path):
                 os.makedirs(path)
 
-            with open('speakers/{}/{}.json'.format(i, i), 'bw') as f:
+            with open(f'speakers/{speaker}/{speaker}.json', 'bw') as f:
                 f.write(response.content)
 
-            with open('speakers/{}/{}.json'.format(i, i)) as j:
+            with open(f'speakers/{speaker}/{speaker}.json') as j:
                 decodedj = json.load(j)
 
             image_binary = base64.b64decode(decodedj["portrait"])
-            with open('speakers/{}/{}.png'.format(i, i), 'wb') as f:
+            with open(f'speakers/{speaker}/{speaker}.png', 'wb') as f:
                 f.write(image_binary)
 
             styleids = decodedj['style_infos']
@@ -56,12 +56,12 @@ def updatespeakers(url):
                 index = index + 1
                 icon_binary = base64.b64decode(x['icon'])
                 styleindex = decodedj['style_infos'][index]['id']
-                path = 'speakers/{}/styles/{}'.format(i, styleindex)
+                path = f'speakers/{speaker}/styles/{styleindex}'
 
                 if not os.path.exists(path):
                     os.makedirs(path)
 
-                with open('{}/{}.png'.format(path, styleindex), 'bw') as f:
+                with open(f'{path}/{styleindex}.png', 'bw') as f:
                     f.write(icon_binary)
 
                 samples = (decodedj['style_infos'][index]['voice_samples'])
@@ -70,6 +70,6 @@ def updatespeakers(url):
                     sampleindex = sampleindex + 1
                     samplebinary = base64.b64decode(samples[sampleindex])
 
-                    with open('{}/sample{}.wav'.format(path, sampleindex),
+                    with open(f'{path}/sample{sampleindex}.wav',
                               'bw') as f:
                         f.write(samplebinary)

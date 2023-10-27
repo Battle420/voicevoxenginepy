@@ -8,7 +8,7 @@ def jsonqueryget(url, speaker, text):
             'text': text,
     }
     try:
-        response = requests.post('{}/audio_query'.format(site), params=params)
+        response = requests.post(f'{site}/audio_query', params=params)
     except requests.ConnectionError:
         print("No connection")
         exit()
