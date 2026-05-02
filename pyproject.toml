@@ -1,0 +1,21 @@
+[project]
+name = "voicevoxenginepy"
+version = "0.0.1"
+description = "Simple client for Voicevox"
+readme = "README.md"
+requires-python = ">=3.14"
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "aiohttp>=3.13.5",
+    "orjson>=3.11.8",
+    "uvloop>=0.22.1",
+]
+
+[tool.ruff]
+lint.extend-select = [ "D", "E501", "PL" ]
+
+[tool.basedpyright]
+typeCheckingMode = "recommended"
