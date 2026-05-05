@@ -10,12 +10,13 @@ classifiers = [
 ]
 dependencies = [
     "aiohttp>=3.13.5",
-    "orjson>=3.11.8",
+    "msgspec>=0.21.1",
     "uvloop>=0.22.1",
 ]
 
 [tool.ruff]
 lint.extend-select = [ "D", "E501", "PL" ]
+lint.pylint.max-returns = 7
 
 [tool.basedpyright]
 typeCheckingMode = "recommended"

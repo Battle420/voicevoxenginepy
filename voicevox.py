@@ -3,9 +3,9 @@
 import base64
 import logging
 from pathlib import Path
-from typing import Literal, NotRequired, TypedDict, final
+from typing import Literal, final
 
-import orjson
+import msgspec
 from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError, ServerDisconnectedError
 
@@ -15,38 +15,38 @@ OK = 200
 JSON_HEADERS = {"Content-Type": "application/json"}
 
 
-class Style(TypedDict):
+class SpeakerStyle(msgspec.Struct):
     """JSON object."""
 
     name: str
     id: int
-    type: str
+    type: Literal["talk", "singing_teacher", "frame_decode", "sing"]
 
 
-class StyleInfo(TypedDict):
+class StyleInfo(msgspec.Struct):
     """JSON object."""
 
     id: int
     icon: str
-    portrait: str
+    portrait: str | None
     voice_samples: list[str]
 
 
-class SupportedFeatures(TypedDict):
+class SupportedFeatures(msgspec.Struct):
     """JSON object."""
 
     permitted_synthesis_morphing: Literal["ALL", "SELF_ONLY", "NOTHING"]
     """Who the character can morph with."""
 
 
-class Speaker(TypedDict):
+class Speaker(msgspec.Struct):
     """JSON object."""
 
     name: str
     """The speaker's name"""
     speaker_uuid: str
     """The speaker's uuid"""
-    styles: list[Style]
+    styles: list[SpeakerStyle]
     """The speaker's styles"""
     version: str
     """The speaker's version"""
@@ -54,7 +54,7 @@ class Speaker(TypedDict):
     """The speaker's supported features."""
 
 
-class SpeakerInfo(TypedDict):
+class SpeakerInfo(msgspec.Struct):
     """JSON object."""
 
     policy: str
@@ -62,27 +62,27 @@ class SpeakerInfo(TypedDict):
     style_infos: list[StyleInfo]
 
 
-class Mora(TypedDict, total=False):
+class Mora(msgspec.Struct):
     """JSON object."""
 
     text: str
-    consonant: NotRequired[str]
-    consonant_length: NotRequired[float]
+    consonant: str | None
+    consonant_length: float | None
     vowel: str
     vowel_length: float
     pitch: float
 
 
-class AccentPhrase(TypedDict, total=False):
+class AccentPhrase(msgspec.Struct):
     """JSON object."""
 
     moras: list[Mora]
     accent: int
-    pause_mora: NotRequired[Mora]
-    is_interrogative: NotRequired[bool]
+    pause_mora: Mora | None
+    is_interrogative: bool | None
 
 
-class AudioQuery(TypedDict, total=False):
+class AudioQuery(msgspec.Struct):
     """JSON object."""
 
     accent_phrases: list[AccentPhrase]
@@ -90,13 +90,13 @@ class AudioQuery(TypedDict, total=False):
     pitchScale: float
     intonationScale: float
     volumeScale: float
-    prePhenomeLength: float
-    postPhenomeLength: float
-    pauseLength: NotRequired[float]
-    pauseLengthScale: NotRequired[float]
+    prePhonemeLength: float
+    postPhonemeLength: float
+    pauseLength: float | None
+    pauseLengthScale: float | None
     outputSamplingRate: int
     outputStereo: bool
-    kana: NotRequired[str]
+    kana: str | None
 
 
 @final
@@ -111,11 +111,11 @@ class Voicevox:
         self.audio_query: AudioQuery | None = None
         self.speaker1: Speaker | None = None
         """Currently chosen speaker 1."""
-        self.style1: Style | None = None
+        self.style1: SpeakerStyle | None = None
         """Currently chosen style for speaker 1."""
         self.speaker2: Speaker | None = None
         """Currently chosen speaker 2."""
-        self.style2: Style | None = None
+        self.style2: SpeakerStyle | None = None
         """Currently chosen style for speaker 2."""
 
     @property
@@ -135,7 +135,7 @@ class Voicevox:
 
     async def select_speaker(
         self, use_saved: bool = False
-    ) -> tuple[Speaker, Style] | None:
+    ) -> tuple[Speaker, SpeakerStyle] | None:
         """Select a style."""
         if not self.has_speakers_information:
             log.info("User hasn't queried the speaker information yet.")
@@ -143,13 +143,13 @@ class Voicevox:
 
         if use_saved:
             with Path("speakers.json").open("r", encoding="utf-8") as j:
-                speakers: list[Speaker] = orjson.loads(j.read())  # pyright: ignore[reportAny]
+                speakers = msgspec.json.decode(j.read(), type=list[Speaker])
         else:
             speakers = self.speakers
 
         print("List of speakers:")
         for index, speaker in enumerate(speakers):
-            print(f"{index}: {speaker['name']}")
+            print(f"{index}: {speaker.name}")
 
         try:
             selectedspeaker: int = int(input("Which speaker would you like to select:"))
@@ -161,9 +161,14 @@ class Voicevox:
             return
 
         print("List of styles:")
-        styles = speakers[selectedspeaker]["styles"]
+        styles = speakers[selectedspeaker].styles
+        forbidden_styles: list[int] = []
         for i, style in enumerate(styles):
-            print(f"{i}: Name: {style['name']} (id: {style['id']})")
+            if style.type == "talk":
+                print(f"{i}: Name: {style.name} (id: {style.id})")
+            else:
+                forbidden_styles.append(i)
+                print(f"<!> Not a talk style {i} Name: {style.name} (id: {style.id})")
 
         try:
             selectedstyle = int(input("Which style would you like to choose:"))
@@ -173,20 +178,23 @@ class Voicevox:
         if selectedstyle + 1 > len(styles) or selectedstyle < 0:
             print("Not a proper style. Choose again.")
             return
+        elif selectedstyle in forbidden_styles:
+            print("You may only select talking styles.")
+            return
 
         speaker = speakers[selectedspeaker]
-        style = speakers[selectedspeaker]["styles"][selectedstyle]
+        style = speakers[selectedspeaker].styles[selectedstyle]
 
         print(
             "You have choosen",
-            speaker["name"],
-            speaker["speaker_uuid"],
+            speaker.name,
+            speaker.speaker_uuid,
             "with the style",
-            style["name"],
+            style.name,
             "id:",
-            style["id"],
+            style.id,
         )
-        log.info("User selected style %s", style["id"])
+        log.info("User selected style %s", style.id)
 
         return speaker, style
 
@@ -197,7 +205,7 @@ class Voicevox:
                 if res.status != OK and res.content_type != "application/json":
                     return
                 data = await res.read()
-            self.speakers = orjson.loads(data)
+            self.speakers = msgspec.json.decode(data, type=list[Speaker])
         except ClientConnectorError:
             log.warning("Voicevox is not available.")
             return
@@ -208,7 +216,8 @@ class Voicevox:
         with open("speakers.json", "bw") as f:
             _ = f.write(data)
 
-        speakeruuids: list[str] = [speaker["speaker_uuid"] for speaker in self.speakers]
+        decoder = msgspec.json.Decoder(SpeakerInfo)
+        speakeruuids: list[str] = [speaker.speaker_uuid for speaker in self.speakers]
         for speaker in speakeruuids:
             log.debug("Updating info for speaker %s", speaker)
 
@@ -222,25 +231,29 @@ class Voicevox:
                 if res.status != OK or res.content_type != "application/json":
                     log.warning("Voicevox did not give speaker information.")
                     return
-                speakerInfo: SpeakerInfo = orjson.loads(await res.read())  # pyright: ignore[reportAny]
+                speakerInfo = decoder.decode(await res.read())
 
             with path.joinpath("policy.md").open("wb") as f:
-                _ = f.write(speakerInfo["policy"].encode())
+                _ = f.write(speakerInfo.policy.encode())
 
             with path.joinpath("portrait.png").open("wb") as f:
-                _ = f.write(base64.b64decode(speakerInfo["portrait"]))
+                _ = f.write(base64.b64decode(speakerInfo.portrait))
 
-            style_info = speakerInfo["style_infos"]
+            style_info = speakerInfo.style_infos
             for index, style in enumerate(style_info):
-                style_id = speakerInfo["style_infos"][index]["id"]
+                style_id = speakerInfo.style_infos[index].id
                 path = Path(f"speakers/{speaker}/styles/{style_id}")
                 if not path.exists():
                     path.mkdir(parents=True)
 
                 with path.joinpath(f"{style_id}.png").open("bw") as f:
-                    _ = f.write(base64.b64decode(style["icon"]))
+                    _ = f.write(base64.b64decode(style.icon))
 
-                samples = speakerInfo["style_infos"][index]["voice_samples"]
+                if style.portrait:
+                    with path.joinpath("portrait.png").open("bw") as f:
+                        _ = f.write(base64.b64decode(style.portrait))
+
+                samples = speakerInfo.style_infos[index].voice_samples
                 for i, sample in enumerate(samples):
                     samplebinary = base64.b64decode(sample)
 
@@ -255,16 +268,18 @@ class Voicevox:
             log.info("The user didn't select a style yet.")
             return
 
-        params = {"speaker": self.style1["id"], "text": text}
+        params = {"speaker": self.style1.id, "text": text}
         async with self.session.post(
             f"{self.url}/audio_query", params=params, headers=JSON_HEADERS
         ) as res:
-            if res.status == OK and res.content_type == "application/json":
-                data = await res.read()
-                if save:
-                    with open("query.json", "bw") as f:
-                        _ = f.write(await res.read())
-                self.audio_query = orjson.loads(data)
+            if res.status != OK or res.content_type != "application/json":
+                log.warning("Voicevox did not provide an audio query.")
+                return
+            data = await res.read()
+        if save:
+            with open("query.json", "bw") as f:
+                _ = f.write(data)
+        self.audio_query = msgspec.json.decode(data, type=AudioQuery)
 
     async def simplesynthesis(self, use_saved: bool = False) -> None:
         """Synthesize speech."""
@@ -275,17 +290,20 @@ class Voicevox:
         if use_saved:
             with open("query.json") as f:
                 audio_query = f.read().encode("utf-8")
-        audio_query = orjson.dumps(self.audio_query)
+        else:
+            audio_query = msgspec.json.encode(self.audio_query)
         try:
             async with self.session.post(
                 f"{self.url}/synthesis",
-                params={"speaker": self.style1["id"]},
+                params={"speaker": self.style1.id},
                 data=audio_query,
                 headers=JSON_HEADERS,
             ) as res:
-                if res.status == OK and res.content_type == "audio/wav":
-                    with open("audio.wav", mode="bw") as f:
-                        _ = f.write(await res.read())
+                if res.status != OK or res.content_type != "audio/wav":
+                    log.warning("Voicevox did not provide audio.")
+                    return
+                with open("audio.wav", mode="bw") as f:
+                    _ = f.write(await res.read())
         except ServerDisconnectedError as e:
             print("The server disconnected")
             log.exception("The server disconnected", exc_info=e)
@@ -294,13 +312,13 @@ class Voicevox:
         """Check if 2 speakers can morph."""
         if self.speaker1 is None or self.speaker2 is None:
             return False
-        allowed_morphing = self.speaker1["supported_features"]
-        if allowed_morphing["permitted_synthesis_morphing"] == "NOTHING":
+        allowed_morphing = self.speaker1.supported_features
+        if allowed_morphing.permitted_synthesis_morphing == "NOTHING":
             return False
-        elif allowed_morphing["permitted_synthesis_morphing"] == "ALL":
+        elif allowed_morphing.permitted_synthesis_morphing == "ALL":
             return True
-        elif allowed_morphing["permitted_synthesis_morphing"] == "SELF_ONLY":
-            if self.speaker1["speaker_uuid"] == self.speaker2["speaker_uuid"]:
+        elif allowed_morphing.permitted_synthesis_morphing == "SELF_ONLY":
+            if self.speaker1.speaker_uuid == self.speaker2.speaker_uuid:
                 return True
             else:
                 return False
@@ -321,23 +339,24 @@ class Voicevox:
             return
 
         if not await self.can_morph():
-            log.info(
+            log.warning(
                 "Can not morph speaker %s with speaker %s since their features were %s",
-                self.speaker1["name"],
-                self.speaker2["name"],
-                self.speaker1["supported_features"],
+                self.speaker1.name,
+                self.speaker2.name,
+                self.speaker1.supported_features.permitted_synthesis_morphing,
             )
             return
 
         params = {
-            "base_speaker": self.style1["id"],
-            "target_speaker": self.style2["id"],
+            "base_speaker": self.style1.id,
+            "target_speaker": self.style2.id,
             "morph_rate": morphrate,
         }
         if use_saved:
             with open("query.json") as f:
                 audio_query = f.read().encode("utf-8")
-        audio_query = orjson.dumps(self.audio_query)
+        else:
+            audio_query = msgspec.json.encode(self.audio_query)
 
         async with self.session.post(
             f"{self.url}/synthesis_morphing",
